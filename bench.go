@@ -85,6 +85,7 @@ func parseHTML(reqURL string, r io.Reader) {
 				for _, a := range n.Attr {
 					if a.Key == "href" {
 						foundURL, _ := curURL.Parse(a.Val)
+						// log.Println(n.Data, foundURL)
 						adhocRequests <- NewGetRequest(foundURL.String())
 					}
 				}
@@ -92,6 +93,7 @@ func parseHTML(reqURL string, r io.Reader) {
 				for _, a := range n.Attr {
 					if a.Key == "src" {
 						foundURL, _ := curURL.Parse(a.Val)
+						// log.Println(n.Data, foundURL)
 						adhocRequests <- NewGetRequest(foundURL.String())
 					}
 				}
@@ -107,6 +109,7 @@ func parseHTML(reqURL string, r io.Reader) {
 func check(request *Request) {
 	var resp *http.Response
 	var err error
+	log.Println("Resuest:", request.Method, request.URL)
 	switch request.Method {
 	case GET:
 		resp, err = http.Get(request.URL)
