@@ -10,11 +10,11 @@ import (
 )
 
 var (
-	workload    = 1
-	urls        = make(chan string, 10000)
-	adhock_urls = make(chan string, 1000)
-	points      = make(chan int, 1000)
-	score       = 0
+	workload   = 1
+	urls       = make(chan string, 10000)
+	adhockUrls = make(chan string, 1000)
+	points     = make(chan int, 1000)
+	score      = 0
 )
 
 func parse(response *http.Response) {
@@ -26,7 +26,7 @@ func parse(response *http.Response) {
 		points <- 10
 	}
 	// if url is parsed
-	// adhock_urls <- new_url
+	// adhockUrls <- new_url
 }
 
 func request(url string) {
@@ -41,7 +41,7 @@ func request(url string) {
 func worker(id int) {
 	// adhock_url is higher priority
 	select {
-	case url := <-adhock_urls:
+	case url := <-adhockUrls:
 		request(url)
 	case url := <-urls:
 		request(url)
