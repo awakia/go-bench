@@ -14,11 +14,11 @@ import (
 )
 
 var (
-	workload       = 1
-	requests       = make(chan *Request, 10000)
-	adhockRequests = make(chan *Request, 1000)
-	points         = make(chan int, 1000)
-	score          = 0
+	workload      = 1
+	requests      = make(chan *Request, 10000)
+	adhocRequests = make(chan *Request, 1000)
+	points        = make(chan int, 1000)
+	score         = 0
 )
 
 // RequestMethod defines http request method
@@ -59,6 +59,7 @@ func NewGetRequest(url string) *Request {
 }
 
 func parse(reqURL string, response *http.Response) {
+	defer response.Body.Close()
 	if response.StatusCode >= 400 {
 		points <- -1
 	} else if response.StatusCode >= 300 {
@@ -67,9 +68,6 @@ func parse(reqURL string, response *http.Response) {
 		points <- 10
 	}
 	parseHTML(reqURL, response.Body)
-	// if new url is parsed
-	// adhockRequests <- NewGetRequest(newURL)
-	response.Body.Close()
 }
 
 func parseHTML(reqURL string, r io.Reader) {
@@ -87,14 +85,14 @@ func parseHTML(reqURL string, r io.Reader) {
 				for _, a := range n.Attr {
 					if a.Key == "href" {
 						foundURL, _ := curURL.Parse(a.Val)
-						requests <- NewGetRequest(foundURL.String())
+						adhocRequests <- NewGetRequest(foundURL.String())
 					}
 				}
 			case "img", "script":
 				for _, a := range n.Attr {
 					if a.Key == "src" {
 						foundURL, _ := curURL.Parse(a.Val)
-						requests <- NewGetRequest(foundURL.String())
+						adhocRequests <- NewGetRequest(foundURL.String())
 					}
 				}
 			}
@@ -123,9 +121,9 @@ func check(request *Request) {
 }
 
 func worker(id int) {
-	// adhock_url is higher priority
+	// adhocRequests is higher priority
 	select {
-	case request := <-adhockRequests:
+	case request := <-adhocRequests:
 		check(request)
 	case request := <-requests:
 		check(request)
