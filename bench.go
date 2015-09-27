@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"golang.org/x/net/html"
@@ -80,22 +81,26 @@ func parseHTML(reqURL string, r io.Reader) {
 	var f func(*html.Node)
 	f = func(n *html.Node) {
 		if n.Type == html.ElementNode {
+			// Add <link rel="stylesheet" herf="XXX">, <img src="XXX">, <script src="XXX"> to adhocRequests
 			switch n.Data {
-			case "link":
+			case "link", "img", "script":
+				send := false
+				var foundURL *url.URL
 				for _, a := range n.Attr {
-					if a.Key == "href" {
-						foundURL, _ := curURL.Parse(a.Val)
-						// log.Println(n.Data, foundURL)
-						adhocRequests <- NewGetRequest(foundURL.String())
+					switch a.Key {
+					case "href":
+						foundURL, _ = curURL.Parse(a.Val)
+					case "src":
+						foundURL, _ = curURL.Parse(a.Val)
+						send = true
+					case "rel":
+						if n.Data == "link" && (a.Val == "stylesheet" || strings.Contains(a.Val, "icon")) {
+							send = true
+						}
 					}
 				}
-			case "img", "script":
-				for _, a := range n.Attr {
-					if a.Key == "src" {
-						foundURL, _ := curURL.Parse(a.Val)
-						// log.Println(n.Data, foundURL)
-						adhocRequests <- NewGetRequest(foundURL.String())
-					}
+				if send && foundURL != nil {
+					adhocRequests <- NewGetRequest(foundURL.String())
 				}
 			}
 		}
