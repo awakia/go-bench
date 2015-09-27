@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	workload      = 1
+	workload      = 2
 	requests      = make(chan *Request, 10000)
 	adhocRequests = make(chan *Request, 1000)
 	points        = make(chan int, 1000)
@@ -121,12 +121,14 @@ func check(request *Request) {
 }
 
 func worker(id int) {
-	// adhocRequests is higher priority
-	select {
-	case request := <-adhocRequests:
-		check(request)
-	case request := <-requests:
-		check(request)
+	for {
+		// adhocRequests is higher priority
+		select {
+		case request := <-adhocRequests:
+			check(request)
+		case request := <-requests:
+			check(request)
+		}
 	}
 }
 
