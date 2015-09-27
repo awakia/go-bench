@@ -3,11 +3,14 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
+
+	"golang.org/x/net/html"
 )
 
 var (
@@ -21,7 +24,7 @@ var (
 // RequestMethod defines http request method
 type RequestMethod int
 
-// request methods
+// Request methods
 const (
 	GET RequestMethod = iota
 	POST
@@ -55,7 +58,7 @@ func NewGetRequest(url string) *Request {
 	return &Request{GET, url, nil}
 }
 
-func parse(response *http.Response) {
+func parse(reqURL string, response *http.Response) {
 	if response.StatusCode >= 400 {
 		points <- -1
 	} else if response.StatusCode >= 300 {
@@ -63,9 +66,44 @@ func parse(response *http.Response) {
 	} else {
 		points <- 10
 	}
+	parseHTML(reqURL, response.Body)
 	// if new url is parsed
 	// adhockRequests <- NewGetRequest(newURL)
 	response.Body.Close()
+}
+
+func parseHTML(reqURL string, r io.Reader) {
+	doc, err := html.Parse(r)
+	if err != nil {
+		fmt.Println(err)
+	}
+	curURL, _ := url.Parse(reqURL)
+
+	var f func(*html.Node)
+	f = func(n *html.Node) {
+		if n.Type == html.ElementNode {
+			switch n.Data {
+			case "link":
+				for _, a := range n.Attr {
+					if a.Key == "href" {
+						foundURL, _ := curURL.Parse(a.Val)
+						requests <- NewGetRequest(foundURL.String())
+					}
+				}
+			case "img", "script":
+				for _, a := range n.Attr {
+					if a.Key == "src" {
+						foundURL, _ := curURL.Parse(a.Val)
+						requests <- NewGetRequest(foundURL.String())
+					}
+				}
+			}
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			f(c)
+		}
+	}
+	f(doc)
 }
 
 func check(request *Request) {
@@ -81,7 +119,7 @@ func check(request *Request) {
 		points <- -1
 		return
 	}
-	go parse(resp)
+	go parse(request.URL, resp)
 }
 
 func worker(id int) {
